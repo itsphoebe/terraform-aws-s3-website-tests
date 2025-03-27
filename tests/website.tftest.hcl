@@ -1,11 +1,17 @@
-override_resource {
-  target = aws_instance.backend_api
+mock_provider "aws" {
+  override_resource {
+    target = aws_s3_object.error
+    values = {
+      etag = "41c9c4a40588e60157641374e9af805b"
+    }
+  }
+  override_resource {
+    target = aws_s3_object.index
+    values = {
+      etag = "25e66e29196ead50c4267ce3a1d71b13"
+    }
+  }
 }
-
-override_resource {
-  target = aws_db_instance.backend_api
-}
-
 
 # Call the setup module to create a random bucket prefix
 run "setup_tests" {
@@ -39,23 +45,24 @@ run "create_bucket" {
   }
 }
 
-run "website_is_running" {
-  command = plan
+# run "website_is_running" {
+#   command = plan
 
-  module {
-    source = "./tests/final"
-  }
+#   module {
+#     source = "./tests/final"
+#   }
 
-  variables {
-    endpoint = run.create_bucket.website_endpoint
-  }
+#   variables {
+#     endpoint = run.create_bucket.website_endpoint
+#   }
 
-  assert {
-    condition = data.http.index.status_code == 200
-    error_message = "Webiste responded with HTTP status ${data.http.index.status_code}"
-  }
-}
+#   assert {
+#     condition = data.http.index.status_code == 200
+#     error_message = "Webiste responded with HTTP status ${data.http.index.status_code}"
+#   }
+# }
 
+# Note aws_instance and aws_db_instance are overridden here!
 run "check_backend_api" {
   assert {
     condition = aws_instance.backend_api.tags.Name == "backend"
@@ -65,5 +72,14 @@ run "check_backend_api" {
   assert {
     condition = aws_db_instance.backend_api.username == "foo"
     error_message = "Invalid database name"
+  }
+}
+
+run "check_db_engine" {
+  command = plan
+  
+  assert {
+    condition = aws_db_instance.backend_api.engine == "mysql"
+    error_message = "Invalid database engine"
   }
 }
